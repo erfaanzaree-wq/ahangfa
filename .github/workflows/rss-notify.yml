@@ -1,0 +1,142 @@
+name: New Song Notify
+
+on:
+  schedule:
+    # Every 30 minutes
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check-and-notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for new posts and notify
+        env:
+          NTFY_TOPIC: newtaraneh-songs
+          # Optional: set repo secret NTFY_TOKEN for a private ntfy topic
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          BLOG_URL: https://newtaraneh.blogfa.com/
+        run: |
+          python3 << 'PY'
+          import json, os, re, urllib.request
+
+          BLOG = os.environ.get("BLOG_URL", "https://newtaraneh.blogfa.com/").rstrip("/") + "/"
+          TOPIC = os.environ.get("NTFY_TOPIC", "newtaraneh-songs")
+          TOKEN = os.environ.get("NTFY_TOKEN", "").strip()
+          STATE_FILE = "notify/last-post.json"
+
+          def fetch(url):
+              req = urllib.request.Request(
+                  url,
+                  headers={
+                      "User-Agent": "Mozilla/5.0 (compatible; NewTaranehBot/1.0; +https://github.com/erfaanzaree-wq/ahangfa)",
+                      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                      "Accept-Language": "fa,en;q=0.8",
+                  },
+              )
+              with urllib.request.urlopen(req, timeout=45) as r:
+                  return r.read().decode("utf-8", errors="ignore")
+
+          def extract_latest(html):
+              # Blogfa post titles in links / headings
+              patterns = [
+                  r'<h2[^>]*>\s*<a[^>]*href="([^"]+)"[^>]*>([^<]+)</a>',
+                  r'data-post-title="([^"]+)"',
+                  r'<a[^>]*href="([^"]*post[^"]*)"[^>]*>([^<]{8,120})</a>',
+              ]
+              for pat in patterns:
+                  m = re.search(pat, html, re.I)
+                  if m:
+                      if m.lastindex >= 2:
+                          href, title = m.group(1).strip(), re.sub(r"\s+", " ", m.group(2)).strip()
+                      else:
+                          title = re.sub(r"\s+", " ", m.group(1)).strip()
+                          href = BLOG
+                      if title and len(title) > 5:
+                          if href.startswith("/"):
+                              href = BLOG.rstrip("/") + href
+                          elif not href.startswith("http"):
+                              href = BLOG + href.lstrip("/")
+                          return {"title": title, "url": href}
+              # Fallback: first substantial text after دانلود آهنگ
+              m = re.search(r"(دانلود آهنگ[^<]{5,80})", html)
+              if m:
+                  return {"title": re.sub(r"\s+", " ", m.group(1)).strip(), "url": BLOG}
+              return None
+
+          def load_state():
+              if not os.path.exists(STATE_FILE):
+                  return {}
+              try:
+                  with open(STATE_FILE, "r", encoding="utf-8") as f:
+                      return json.load(f)
+              except Exception:
+                  return {}
+
+          def save_state(data):
+              os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+              with open(STATE_FILE, "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
+
+          def notify(title, body, click_url):
+              url = f"https://ntfy.sh/{TOPIC}"
+              headers = {
+                  "Title": title.encode("utf-8"),
+                  "Click": click_url,
+                  "Tags": "musical_note,loudspeaker",
+                  "Priority": "default",
+                  "Content-Type": "text/plain; charset=utf-8",
+              }
+              if TOKEN:
+                  headers["Authorization"] = f"Bearer {TOKEN}"
+              data = body.encode("utf-8")
+              req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  print("ntfy status", r.status)
+
+          try:
+              html = fetch(BLOG)
+          except Exception as e:
+              print("Fetch failed:", e)
+              raise SystemExit(0)
+
+          latest = extract_latest(html)
+          if not latest:
+              print("No post title found")
+              raise SystemExit(0)
+
+          print("Latest:", latest)
+          state = load_state()
+          prev = state.get("title")
+
+          if prev == latest["title"]:
+              print("No new post")
+              raise SystemExit(0)
+
+          # First run: only save, do not spam
+          if not prev:
+              save_state(latest)
+              print("Initialized state, skip notify")
+              raise SystemExit(0)
+
+          body = latest["title"]
+          notify("آهنگ جدید | نیو ترانه", body, latest["url"])
+          save_state(latest)
+          print("Notified and state updated")
+          PY
+
+      - name: Commit state if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add notify/last-post.json || true
+          if git diff --staged --quiet; then
+            echo "No state change"
+          else
+            git commit -m "chore: update last notified post"
+            git push
+          fi

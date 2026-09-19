@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>اعلان آهنگ جدید | نیو ترانه</title>
+<meta name="theme-color" content="#0ea5e9"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" href="https://newtaraneh.blogfa.com/"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Tahoma,system-ui,sans-serif;background:#0a0e14;color:#fff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;line-height:1.8}
+.card{max-width:420px;width:100%;background:#121722;border:1px solid #1c2433;border-radius:20px;padding:28px 22px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.logo{width:72px;height:72px;border-radius:16px;background:#0ea5e9;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px}
+h1{font-size:1.25rem;margin-bottom:8px;color:#38bdf8}
+.desc{font-size:.88rem;color:#9aa7b8;margin-bottom:22px}
+.btn{display:block;width:100%;padding:14px 16px;border:0;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;margin-bottom:10px;text-decoration:none}
+.btn-primary{background:#0ea5e9;color:#fff}
+.btn-primary:hover{opacity:.92}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:#1c2433;color:#e2e8f0;border:1px solid #2a3548}
+.status{margin-top:14px;font-size:.82rem;color:#9aa7b8;min-height:1.5em}
+.status.ok{color:#4ade80}
+.status.err{color:#f87171}
+.steps{text-align:right;font-size:.8rem;color:#9aa7b8;margin-top:20px;padding-top:16px;border-top:1px solid #1c2433}
+.steps li{margin-bottom:8px}
+a.link{color:#38bdf8}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🎵</div>
+  <h1>اعلان آهنگ‌های جدید</h1>
+  <p class="desc">با فعال‌سازی، وقتی آهنگ جدیدی در نیو ترانه منتشر شود به شما خبر می‌دهیم.</p>
+  <button type="button" class="btn btn-primary" id="btn-enable">فعال‌سازی اعلان مرورگر</button>
+  <a class="btn btn-secondary" href="https://ntfy.sh/newtaraneh-songs" target="_blank" rel="noopener">عضویت در کانال ntfy (موبایل)</a>
+  <a class="btn btn-secondary" href="https://newtaraneh.blogfa.com/" target="_blank" rel="noopener">بازگشت به وبلاگ</a>
+  <a class="btn btn-secondary" href="https://t.me/NewTaraneh" target="_blank" rel="noopener">کانال تلگرام نیو ترانه</a>
+  <p class="status" id="status"></p>
+  <ol class="steps">
+    <li>روی «فعال‌سازی اعلان مرورگر» بزنید و Allow را انتخاب کنید.</li>
+    <li>برای موبایل: اپ <a class="link" href="https://ntfy.sh" target="_blank" rel="noopener">ntfy</a> را نصب کنید و توپیک <b>newtaraneh-songs</b> را Subscribe کنید.</li>
+    <li>هر پست جدید وبلاگ به‌صورت خودکار نوتیف می‌فرستد.</li>
+  </ol>
+</div>
+<script src="notify.js"></script>
+</body>
+</html>
