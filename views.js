@@ -1,183 +1,142 @@
 /**
- * New Taraneh – Real Views + Downloads + Advanced Stats v2
- * Uses CountAPI (real increments). Device detection + content counts.
- * https://erfaanzaree-wq.github.io/ahangfa/views.js
+ * New Taraneh – Real Views / Downloads / Stats v3
+ * Robust CountAPI + Top badge + device + content counts
  */
 (function () {
   "use strict";
-  var NS = "ntv6-";
+  var NS = "ntv7-";
   var API = "https://countapi.mileshilliard.com/api/v1/";
-  var CACHE_TTL = 1800000;
-  var VIEWED_PREFIX = "ntv6-seen-";
-  var DL_PREFIX = "ntv6-dl-";
+  var CACHE_TTL = 900000;
+  var VIEWED = "ntv7s-";
+  var DLFLAG = "ntv7d-";
+  var ready = false;
 
-  function toFa(n) {
-    return String(Math.floor(Math.max(0, n))).replace(/\d/g, function (d) {
-      return "۰۱۲۳۴۵۶۷۸۹"[d];
-    });
+  function fa(n) {
+    n = Math.floor(Math.max(0, Number(n) || 0));
+    return String(n).replace(/\d/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; });
   }
 
-  function tehranDateKey(offsetDays) {
-    offsetDays = offsetDays || 0;
+  function tehran(offset) {
+    offset = offset || 0;
     try {
-      var d = new Date(Date.now() + offsetDays * 86400000);
-      return d.toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" });
+      return new Date(Date.now() + offset * 864e5).toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" });
     } catch (e) {
-      var d2 = new Date(Date.now() + offsetDays * 86400000);
-      return d2.getFullYear() + "-" + String(d2.getMonth() + 1).padStart(2, "0") + "-" + String(d2.getDate()).padStart(2, "0");
+      var d = new Date(Date.now() + offset * 864e5);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     }
   }
 
-  function tehranMonthKey() {
-    try {
-      var p = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" }).split("-");
-      return p[0] + "-" + p[1];
-    } catch (e) {
-      var d = new Date();
-      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
-    }
-  }
+  function monthKey() { return tehran(0).slice(0, 7); }
+  function yearKey() { return tehran(0).slice(0, 4); }
 
-  function tehranYearKey() {
+  function cacheGet(k) {
     try {
-      return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" }).slice(0, 4);
-    } catch (e) {
-      return String(new Date().getFullYear());
-    }
-  }
-
-  function getCache(key) {
-    try {
-      var raw = localStorage.getItem(key);
-      if (!raw) return null;
-      var o = JSON.parse(raw);
-      if (Date.now() - o.t > CACHE_TTL) return null;
+      var o = JSON.parse(localStorage.getItem(k) || "null");
+      if (!o || Date.now() - o.t > CACHE_TTL) return null;
       return o.v;
     } catch (e) { return null; }
   }
-
-  function setCache(key, val) {
-    try { localStorage.setItem(key, JSON.stringify({ v: val, t: Date.now() })); } catch (e) {}
+  function cacheSet(k, v) {
+    try { localStorage.setItem(k, JSON.stringify({ v: v, t: Date.now() })); } catch (e) {}
+  }
+  function flagged(p, id) {
+    try { return localStorage.getItem(p + id) === "1"; } catch (e) { return false; }
+  }
+  function flag(p, id) {
+    try { localStorage.setItem(p + id, "1"); } catch (e) {}
   }
 
-  function hasFlag(prefix, id) {
-    try { return localStorage.getItem(prefix + id) === "1"; } catch (e) { return false; }
-  }
-
-  function setFlag(prefix, id) {
-    try { localStorage.setItem(prefix + id, "1"); } catch (e) {}
-  }
-
-  function fetchCount(key, hit) {
+  function api(key, hit) {
     var url = API + (hit ? "hit/" : "get/") + encodeURIComponent(key);
-    return fetch(url, { method: "GET", mode: "cors", cache: "no-store" })
-      .then(function (r) { return r.ok ? r.json() : { value: 0 }; })
-      .then(function (d) { return parseInt(d.value, 10) || 0; })
+    return fetch(url, { method: "GET", mode: "cors", cache: "no-store", credentials: "omit" })
+      .then(function (r) {
+        return r.json().then(function (d) {
+          if (d && typeof d.value === "number") return d.value;
+          return 0;
+        }).catch(function () { return 0; });
+      })
       .catch(function () { return 0; });
   }
 
-  function detectDevice() {
+  function device() {
     var ua = (navigator.userAgent || "").toLowerCase();
-    var platform = (navigator.platform || "").toLowerCase();
-    var touch = navigator.maxTouchPoints > 1 || "ontouchstart" in window;
-    var w = Math.min(screen.width || 0, screen.height || 0);
-
-    if (/smart-tv|smarttv|googletv|appletv|hbbtv|pov_tv|netcast|viera|webos|tizen|bravia|aftb|aftt|aftm|shield|roku|firetv|crkey/.test(ua) ||
-        (w >= 1280 && !touch && /tv|android/.test(ua))) {
-      return { type: "tv", label: "تلویزیون", icon: "📺" };
-    }
-    if (/iphone|ipod/.test(ua) || (platform === "macintel" && touch)) {
-      return { type: "ios", label: "آیفون", icon: "📱" };
-    }
-    if (/ipad/.test(ua)) {
-      return { type: "ios", label: "آیپد", icon: "📱" };
-    }
-    if (/android/.test(ua)) {
-      if (w < 600 || /mobile/.test(ua)) return { type: "android", label: "اندروید", icon: "📱" };
-      return { type: "android", label: "تبلت اندروید", icon: "📱" };
-    }
-    if (/win|mac|linux|cros|x11/.test(ua + platform) && !touch) {
-      return { type: "desktop", label: "کامپیوتر", icon: "💻" };
-    }
-    if (touch || w < 768) return { type: "mobile", label: "موبایل", icon: "📱" };
-    return { type: "desktop", label: "کامپیوتر", icon: "💻" };
+    var pl = (navigator.platform || "").toLowerCase();
+    var touch = (navigator.maxTouchPoints || 0) > 1 || "ontouchstart" in window;
+    var w = Math.min(screen.width || 9999, screen.height || 9999);
+    if (/smart-tv|smarttv|googletv|appletv|hbbtv|webos|tizen|bravia|aftb|aftt|roku|firetv|crkey|netcast|viera/.test(ua))
+      return { t: "tv", l: "تلویزیون", i: "📺" };
+    if (/iphone|ipod/.test(ua) || (pl === "macintel" && touch))
+      return { t: "ios", l: "آیفون", i: "📱" };
+    if (/ipad/.test(ua)) return { t: "ios", l: "آیپد", i: "📱" };
+    if (/android/.test(ua))
+      return w < 600 || /mobile/.test(ua)
+        ? { t: "android", l: "اندروید", i: "📱" }
+        : { t: "android", l: "تبلت", i: "📱" };
+    if (/win|mac|linux|cros|x11/.test(ua + pl) && !touch)
+      return { t: "desktop", l: "کامپیوتر", i: "💻" };
+    if (touch || w < 768) return { t: "mobile", l: "موبایل", i: "📱" };
+    return { t: "desktop", l: "کامپیوتر", i: "💻" };
   }
 
-  function renderViews(el, total) {
-    var span = el.querySelector(".post-view-count");
-    if (span) {
-      span.textContent = toFa(total);
-      span.setAttribute("title", toFa(total) + " بازدید");
+  function setView(el, n) {
+    var s = el.querySelector(".post-view-count");
+    if (s) {
+      s.textContent = fa(n);
+      s.title = fa(n) + " بازدید";
     }
     el.classList.add("is-ready");
+    el.dataset.views = String(n);
   }
 
-  function processViewCounter(el) {
+  function processView(el) {
     if (el.dataset.vcInit === "1") return;
     el.dataset.vcInit = "1";
-    var article = el.closest("[data-post-schema]") || el.closest("article");
-    var postId = (article && article.getAttribute("data-post-id")) || el.getAttribute("data-post-id") || "";
-    if (!postId) {
-      renderViews(el, 0);
-      return;
+    var art = el.closest("[data-post-schema]") || el.closest("article");
+    var id = (art && art.getAttribute("data-post-id")) || el.getAttribute("data-post-id") || "";
+    if (!id) { setView(el, 0); return; }
+    var key = NS + "v-" + id;
+    var ck = "ntv7c-" + id;
+    var isPost = document.documentElement.classList.contains("post");
+    var cached = cacheGet(ck);
+
+    function done(v) {
+      cacheSet(ck, v);
+      setView(el, v);
+      if (art) art.dataset.views = String(v);
     }
-    var apiKey = NS + "v-" + postId;
-    var cacheKey = "ntv6-c-" + postId;
-    var isPostPage = document.documentElement.classList.contains("post");
-    var cached = getCache(cacheKey);
 
     if (cached !== null) {
-      renderViews(el, cached);
-      if (isPostPage && !hasFlag(VIEWED_PREFIX, postId)) {
-        setFlag(VIEWED_PREFIX, postId);
-        fetchCount(apiKey, true).then(function (v) {
-          setCache(cacheKey, v);
-          renderViews(el, v);
-        });
+      done(cached);
+      if (isPost && !flagged(VIEWED, id)) {
+        flag(VIEWED, id);
+        api(key, true).then(done);
       }
       return;
     }
-
-    var doHit = isPostPage && !hasFlag(VIEWED_PREFIX, postId);
-    if (doHit) setFlag(VIEWED_PREFIX, postId);
-    fetchCount(apiKey, doHit).then(function (v) {
-      setCache(cacheKey, v);
-      renderViews(el, v);
-    });
+    var hit = isPost && !flagged(VIEWED, id);
+    if (hit) flag(VIEWED, id);
+    api(key, hit).then(done);
   }
 
-  function trackDownload(btn) {
-    var href = btn.getAttribute("href") || "";
-    if (!href || href === "#" || btn.dataset.dlTracked === "1") return;
-    var key = "";
-    try {
-      var u = new URL(href, location.href);
-      key = u.pathname.split("/").pop() || u.href;
-    } catch (e) {
-      key = href.slice(-40);
-    }
-    key = key.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 60);
-    if (!key) return;
-
-    var article = btn.closest("[data-post-schema]") || btn.closest("article") || btn.closest(".mc");
-    var postId = (article && (article.getAttribute("data-post-id") || (article._o && article._o.u))) || "";
-    var apiKey = NS + "d-" + (postId || key).slice(0, 40);
-
-    if (hasFlag(DL_PREFIX, apiKey)) return;
-    setFlag(DL_PREFIX, apiKey);
-    btn.dataset.dlTracked = "1";
-
-    fetchCount(apiKey, true).then(function (v) {
-      var badge = btn.querySelector("[data-dl-count]") || btn.parentElement && btn.parentElement.querySelector("[data-dl-count]");
-      if (badge) badge.textContent = toFa(v);
-    });
+  function scanViews() {
+    document.querySelectorAll("[data-view-counter]").forEach(processView);
   }
 
-  function bindDownloadTracking() {
-    document.addEventListener("click", function (e) {
-      var a = e.target.closest("a[download], .mc-d, .music-download-btn, .post-video-download, [data-download]");
-      if (a) trackDownload(a);
-    }, true);
+  function trackDl(a) {
+    if (!a || a.dataset.dlTracked === "1") return;
+    var href = a.getAttribute("href") || "";
+    if (!href || href === "#") return;
+    var part = "";
+    try { part = new URL(href, location.href).pathname.split("/").pop() || ""; } catch (e) { part = href.slice(-32); }
+    part = part.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 48);
+    if (!part) return;
+    var art = a.closest("[data-post-schema]") || a.closest("article") || a.closest(".mc");
+    var pid = (art && art.getAttribute("data-post-id")) || "";
+    var key = NS + "dl-" + (pid || part).slice(0, 40);
+    if (flagged(DLFLAG, key)) return;
+    flag(DLFLAG, key);
+    a.dataset.dlTracked = "1";
+    api(key, true);
   }
 
   function countContent() {
@@ -187,89 +146,154 @@
       else songs++;
     });
     document.querySelectorAll("article.post-card").forEach(function (a) {
-      if (!a.querySelector("audio, [data-ez-player], video, iframe[src*='aparat'], iframe[src*='youtube']")) {
-        articles++;
-      }
+      var hasMedia = a.querySelector("audio,[data-ez-player],video,iframe[src*='aparat'],iframe[src*='youtube'],iframe[src*='youtu']");
+      if (!hasMedia && !a.querySelector(".mc")) articles++;
     });
     var recent = document.querySelectorAll("#recent-posts-list li").length;
     return { songs: songs, videos: videos, articles: articles, recent: recent };
   }
 
-  function updateGlobalStats(hitToday) {
-    var todayKey = NS + "day-" + tehranDateKey(0);
-    var ydayKey = NS + "day-" + tehranDateKey(-1);
-    var monthKey = NS + "mon-" + tehranMonthKey();
-    var yearKey = NS + "yr-" + tehranYearKey();
-    var device = detectDevice();
-    var deviceKey = NS + "dev-" + device.type;
+  function setText(root, sel, val) {
+    var el = root.querySelector(sel);
+    if (!el) return;
+    el.textContent = typeof val === "number" ? fa(val) : (val || "—");
+  }
 
+  function renderStats(data, content) {
+    var root = document.getElementById("blog-stats-box");
+    if (!root) return;
+    setText(root, "[data-stat-today]", data.today);
+    setText(root, "[data-stat-yesterday]", data.yesterday);
+    setText(root, "[data-stat-month]", data.month);
+    setText(root, "[data-stat-year]", data.year);
+    setText(root, "[data-stat-device]", data.device.l);
+    setText(root, "[data-stat-songs]", content.songs);
+    setText(root, "[data-stat-videos]", content.videos);
+    setText(root, "[data-stat-articles]", content.articles > 0 ? content.articles : content.recent);
+    var ic = root.querySelector("[data-stat-device-icon]");
+    if (ic) ic.textContent = data.device.i;
+    root.classList.add("is-ready");
+    ready = true;
+  }
+
+  function loadGlobal(hit) {
+    var dev = device();
     return Promise.all([
-      fetchCount(todayKey, !!hitToday),
-      fetchCount(ydayKey, false),
-      fetchCount(monthKey, !!hitToday),
-      fetchCount(yearKey, !!hitToday),
-      fetchCount(deviceKey, !!hitToday)
-    ]).then(function (vals) {
-      return {
-        today: vals[0],
-        yesterday: vals[1],
-        month: vals[2],
-        year: vals[3],
-        deviceHits: vals[4],
-        device: device
-      };
+      api(NS + "day-" + tehran(0), hit),
+      api(NS + "day-" + tehran(-1), false),
+      api(NS + "mon-" + monthKey(), hit),
+      api(NS + "yr-" + yearKey(), hit),
+      api(NS + "dev-" + dev.t, hit)
+    ]).then(function (v) {
+      return { today: v[0], yesterday: v[1], month: v[2], year: v[3], device: dev };
     });
   }
 
-  function renderStatsBox(data, content) {
-    var root = document.getElementById("blog-stats-box");
-    if (!root) return;
-
-    function set(sel, val) {
-      var el = root.querySelector(sel);
-      if (el) el.textContent = typeof val === "number" ? toFa(val) : val;
-    }
-
-    set("[data-stat-today]", data.today);
-    set("[data-stat-yesterday]", data.yesterday);
-    set("[data-stat-month]", data.month);
-    set("[data-stat-year]", data.year);
-    set("[data-stat-device]", data.device.label);
-    set("[data-stat-songs]", content.songs);
-    set("[data-stat-videos]", content.videos);
-    set("[data-stat-articles]", content.articles || content.recent);
-
-    var devIcon = root.querySelector("[data-stat-device-icon]");
-    if (devIcon) devIcon.textContent = data.device.icon;
-
-    root.classList.add("is-ready");
+  function addTopBadge(el, label) {
+    if (!el || el.querySelector(".top-badge")) return;
+    var b = document.createElement("span");
+    b.className = "top-badge";
+    b.textContent = label || "محبوب";
+    b.setAttribute("title", "بیشترین بازدید");
+    var host = el.querySelector(".mc-i") || el.querySelector(".post-title") || el;
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    host.appendChild(b);
+    el.classList.add("is-top");
   }
 
-  function scanViews() {
-    document.querySelectorAll("[data-view-counter]").forEach(processViewCounter);
+  function markTopItems() {
+    var items = [];
+    document.querySelectorAll("[data-post-schema]").forEach(function (art) {
+      var id = art.getAttribute("data-post-id");
+      if (!id) return;
+      var v = parseInt(art.dataset.views || "0", 10);
+      var ck = cacheGet("ntv7c-" + id);
+      if (ck !== null) v = ck;
+      items.push({ el: art, id: id, views: v || 0 });
+    });
+    document.querySelectorAll(".mc").forEach(function (mc) {
+      var title = mc.getAttribute("data-post-title") || "";
+      var art = null;
+      document.querySelectorAll("[data-post-schema]").forEach(function (a) {
+        if (a.getAttribute("data-post-title") === title) art = a;
+      });
+      if (art && art.dataset.views) {
+        items.push({ el: mc, id: art.getAttribute("data-post-id"), views: parseInt(art.dataset.views, 10) || 0, isCard: true });
+      }
+    });
+    if (!items.length) return;
+    var need = items.filter(function (x) { return !x.views; }).slice(0, 12);
+    var fetches = need.map(function (x) {
+      return api(NS + "v-" + x.id, false).then(function (v) {
+        x.views = v;
+        cacheSet("ntv7c-" + x.id, v);
+        var art = document.querySelector('[data-post-schema][data-post-id="' + x.id + '"]');
+        if (art) art.dataset.views = String(v);
+      });
+    });
+    Promise.all(fetches).then(function () {
+      var max = 0, top = null;
+      items.forEach(function (x) {
+        if (x.views > max) { max = x.views; top = x; }
+      });
+      if (top && max > 0) {
+        addTopBadge(top.el, "محبوب");
+        if (!top.isCard) {
+          var title = top.el.getAttribute("data-post-title");
+          document.querySelectorAll(".mc").forEach(function (mc) {
+            if (mc.getAttribute("data-post-title") === title) addTopBadge(mc, "TOP");
+          });
+        }
+      }
+    });
+  }
+
+  function refreshContentStats() {
+    var root = document.getElementById("blog-stats-box");
+    if (!root || !ready) return;
+    var c = countContent();
+    setText(root, "[data-stat-songs]", c.songs);
+    setText(root, "[data-stat-videos]", c.videos);
+    setText(root, "[data-stat-articles]", c.articles > 0 ? c.articles : c.recent);
   }
 
   function init() {
-    var sessionHit = false;
+    var hit = false;
     try {
-      if (!sessionStorage.getItem("ntv6-visit")) {
-        sessionStorage.setItem("ntv6-visit", "1");
-        sessionHit = true;
+      if (!sessionStorage.getItem("ntv7-hit")) {
+        sessionStorage.setItem("ntv7-hit", "1");
+        hit = true;
       }
-    } catch (e) {
-      sessionHit = true;
-    }
+    } catch (e) { hit = true; }
 
     scanViews();
-    bindDownloadTracking();
+
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest("a[download],.mc-d,.music-download-btn,.post-video-download,[data-download]");
+      if (a) trackDl(a);
+    }, true);
 
     var content = countContent();
-    updateGlobalStats(sessionHit).then(function (data) {
-      renderStatsBox(data, content);
+    loadGlobal(hit).then(function (data) {
+      renderStats(data, content);
+      setTimeout(refreshContentStats, 800);
+      setTimeout(refreshContentStats, 2000);
+      setTimeout(markTopItems, 1200);
+      setTimeout(markTopItems, 3000);
+    }).catch(function () {
+      renderStats({ today: 0, yesterday: 0, month: 0, year: 0, device: device() }, content);
     });
 
-    var obs = new MutationObserver(function () { scanViews(); });
-    obs.observe(document.body, { childList: true, subtree: true });
+    var t1, t2;
+    new MutationObserver(function () {
+      clearTimeout(t1);
+      t1 = setTimeout(function () {
+        scanViews();
+        refreshContentStats();
+      }, 400);
+      clearTimeout(t2);
+      t2 = setTimeout(markTopItems, 1500);
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   if (document.readyState === "loading") {
