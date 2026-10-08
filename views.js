@@ -1,71 +1,49 @@
 /**
- * New Taraneh – View Counter + Blog Stats
+ * New Taraneh – Real Views + Downloads + Advanced Stats v2
+ * Uses CountAPI (real increments). Device detection + content counts.
  * https://erfaanzaree-wq.github.io/ahangfa/views.js
- * Base: 5000–1000000 (newer posts → lower base)
- * Full numbers (no K/M). Real hits counted.
  */
 (function () {
   "use strict";
-  var NS = "nt-v4-";
+  var NS = "ntv6-";
   var API = "https://countapi.mileshilliard.com/api/v1/";
-  var CACHE_TTL = 3600000;
-  var VIEWED_PREFIX = "nt-viewed-";
-
-  function hash32(str) {
-    var h = 2166136261 >>> 0;
-    for (var i = 0; i < str.length; i++) {
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
-    }
-    return h;
-  }
-
-  function seeded01(str) {
-    return (hash32(str) >>> 0) / 4294967296;
-  }
+  var CACHE_TTL = 1800000;
+  var VIEWED_PREFIX = "ntv6-seen-";
+  var DL_PREFIX = "ntv6-dl-";
 
   function toFa(n) {
-    return String(Math.floor(n)).replace(/\d/g, function (d) {
+    return String(Math.floor(Math.max(0, n))).replace(/\d/g, function (d) {
       return "۰۱۲۳۴۵۶۷۸۹"[d];
     });
   }
 
-  /* ---------- Post base views: newer → lower ---------- */
-  function parsePostAgeDays(dateStr) {
-    if (!dateStr) return null;
-    var s = String(dateStr).replace(/[۰-۹]/g, function (d) {
-      return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);
-    }).replace(/[٠-٩]/g, function (d) {
-      return "٠١٢٣٤٥٦٧٨٩".indexOf(d);
-    });
-    var m = s.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-    if (!m) return null;
-    var jy = +m[1], jm = +m[2], jd = +m[3];
-    var gy = jy + 621;
-    var approx = new Date(gy, jm - 1, jd);
-    if (isNaN(approx.getTime())) return null;
-    var now = new Date();
-    var days = Math.floor((now - approx) / 86400000);
-    return Math.max(0, days);
+  function tehranDateKey(offsetDays) {
+    offsetDays = offsetDays || 0;
+    try {
+      var d = new Date(Date.now() + offsetDays * 86400000);
+      return d.toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" });
+    } catch (e) {
+      var d2 = new Date(Date.now() + offsetDays * 86400000);
+      return d2.getFullYear() + "-" + String(d2.getMonth() + 1).padStart(2, "0") + "-" + String(d2.getDate()).padStart(2, "0");
+    }
   }
 
-  function baseViews(postId, dateStr) {
-    var age = parsePostAgeDays(dateStr);
-    var h = seeded01(String(postId) + "|nt|salt2026");
-    var minB = 5000, maxB = 1000000;
-    if (age !== null) {
-      var factor = Math.min(1, age / 400);
-      var lo = minB + factor * (maxB - minB) * 0.12;
-      var hi = minB + factor * (maxB - minB) * 0.5 + (1 - factor) * (maxB - minB) * 0.88;
-      if (hi < lo) { var t = lo; lo = hi; hi = t; }
-      return Math.floor(lo + h * (hi - lo));
+  function tehranMonthKey() {
+    try {
+      var p = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" }).split("-");
+      return p[0] + "-" + p[1];
+    } catch (e) {
+      var d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
     }
-    var idNum = parseInt(String(postId).replace(/\D/g, ""), 10) || 0;
-    var idFactor = Math.min(1, idNum / 200000);
-    var lo2 = minB + (1 - idFactor) * 20000;
-    var hi2 = maxB - idFactor * 600000;
-    if (hi2 < lo2) hi2 = lo2 + 50000;
-    return Math.floor(lo2 + h * (hi2 - lo2));
+  }
+
+  function tehranYearKey() {
+    try {
+      return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" }).slice(0, 4);
+    } catch (e) {
+      return String(new Date().getFullYear());
+    }
   }
 
   function getCache(key) {
@@ -82,12 +60,12 @@
     try { localStorage.setItem(key, JSON.stringify({ v: val, t: Date.now() })); } catch (e) {}
   }
 
-  function hasViewed(postId) {
-    try { return localStorage.getItem(VIEWED_PREFIX + postId) === "1"; } catch (e) { return false; }
+  function hasFlag(prefix, id) {
+    try { return localStorage.getItem(prefix + id) === "1"; } catch (e) { return false; }
   }
 
-  function markViewed(postId) {
-    try { localStorage.setItem(VIEWED_PREFIX + postId, "1"); } catch (e) {}
+  function setFlag(prefix, id) {
+    try { localStorage.setItem(prefix + id, "1"); } catch (e) {}
   }
 
   function fetchCount(key, hit) {
@@ -96,6 +74,33 @@
       .then(function (r) { return r.ok ? r.json() : { value: 0 }; })
       .then(function (d) { return parseInt(d.value, 10) || 0; })
       .catch(function () { return 0; });
+  }
+
+  function detectDevice() {
+    var ua = (navigator.userAgent || "").toLowerCase();
+    var platform = (navigator.platform || "").toLowerCase();
+    var touch = navigator.maxTouchPoints > 1 || "ontouchstart" in window;
+    var w = Math.min(screen.width || 0, screen.height || 0);
+
+    if (/smart-tv|smarttv|googletv|appletv|hbbtv|pov_tv|netcast|viera|webos|tizen|bravia|aftb|aftt|aftm|shield|roku|firetv|crkey/.test(ua) ||
+        (w >= 1280 && !touch && /tv|android/.test(ua))) {
+      return { type: "tv", label: "تلویزیون", icon: "📺" };
+    }
+    if (/iphone|ipod/.test(ua) || (platform === "macintel" && touch)) {
+      return { type: "ios", label: "آیفون", icon: "📱" };
+    }
+    if (/ipad/.test(ua)) {
+      return { type: "ios", label: "آیپد", icon: "📱" };
+    }
+    if (/android/.test(ua)) {
+      if (w < 600 || /mobile/.test(ua)) return { type: "android", label: "اندروید", icon: "📱" };
+      return { type: "android", label: "تبلت اندروید", icon: "📱" };
+    }
+    if (/win|mac|linux|cros|x11/.test(ua + platform) && !touch) {
+      return { type: "desktop", label: "کامپیوتر", icon: "💻" };
+    }
+    if (touch || w < 768) return { type: "mobile", label: "موبایل", icon: "📱" };
+    return { type: "desktop", label: "کامپیوتر", icon: "💻" };
   }
 
   function renderViews(el, total) {
@@ -107,92 +112,164 @@
     el.classList.add("is-ready");
   }
 
-  function processCounter(el) {
+  function processViewCounter(el) {
     if (el.dataset.vcInit === "1") return;
     el.dataset.vcInit = "1";
     var article = el.closest("[data-post-schema]") || el.closest("article");
     var postId = (article && article.getAttribute("data-post-id")) || el.getAttribute("data-post-id") || "";
-    var dateStr = (article && article.getAttribute("data-post-date")) || "";
     if (!postId) {
-      renderViews(el, baseViews("unknown", ""));
+      renderViews(el, 0);
       return;
     }
-    var base = baseViews(postId, dateStr);
-    var apiKey = NS + postId;
+    var apiKey = NS + "v-" + postId;
+    var cacheKey = "ntv6-c-" + postId;
     var isPostPage = document.documentElement.classList.contains("post");
-    var cacheKey = "nt-c4-" + postId;
     var cached = getCache(cacheKey);
+
     if (cached !== null) {
-      renderViews(el, base + cached);
-      if (isPostPage && !hasViewed(postId)) {
-        markViewed(postId);
+      renderViews(el, cached);
+      if (isPostPage && !hasFlag(VIEWED_PREFIX, postId)) {
+        setFlag(VIEWED_PREFIX, postId);
         fetchCount(apiKey, true).then(function (v) {
           setCache(cacheKey, v);
-          renderViews(el, base + v);
+          renderViews(el, v);
         });
       }
       return;
     }
-    var doHit = isPostPage && !hasViewed(postId);
-    if (doHit) markViewed(postId);
+
+    var doHit = isPostPage && !hasFlag(VIEWED_PREFIX, postId);
+    if (doHit) setFlag(VIEWED_PREFIX, postId);
     fetchCount(apiKey, doHit).then(function (v) {
       setCache(cacheKey, v);
-      renderViews(el, base + v);
+      renderViews(el, v);
     });
   }
 
-  /* ---------- Daily stable random (Tehran date) ---------- */
-  function tehranDateKey() {
+  function trackDownload(btn) {
+    var href = btn.getAttribute("href") || "";
+    if (!href || href === "#" || btn.dataset.dlTracked === "1") return;
+    var key = "";
     try {
-      return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tehran" });
+      var u = new URL(href, location.href);
+      key = u.pathname.split("/").pop() || u.href;
     } catch (e) {
-      var d = new Date();
-      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      key = href.slice(-40);
     }
+    key = key.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 60);
+    if (!key) return;
+
+    var article = btn.closest("[data-post-schema]") || btn.closest("article") || btn.closest(".mc");
+    var postId = (article && (article.getAttribute("data-post-id") || (article._o && article._o.u))) || "";
+    var apiKey = NS + "d-" + (postId || key).slice(0, 40);
+
+    if (hasFlag(DL_PREFIX, apiKey)) return;
+    setFlag(DL_PREFIX, apiKey);
+    btn.dataset.dlTracked = "1";
+
+    fetchCount(apiKey, true).then(function (v) {
+      var badge = btn.querySelector("[data-dl-count]") || btn.parentElement && btn.parentElement.querySelector("[data-dl-count]");
+      if (badge) badge.textContent = toFa(v);
+    });
   }
 
-  function dailyRandom(seed, min, max) {
-    var r = seeded01(tehranDateKey() + "|" + seed);
-    return Math.floor(min + r * (max - min + 1));
+  function bindDownloadTracking() {
+    document.addEventListener("click", function (e) {
+      var a = e.target.closest("a[download], .mc-d, .music-download-btn, .post-video-download, [data-download]");
+      if (a) trackDownload(a);
+    }, true);
   }
 
-  /* ---------- Live online (1–230) ---------- */
-  var onlineBase = null;
-  function getOnline() {
-    if (onlineBase === null) {
-      onlineBase = 1 + Math.floor(seeded01(tehranDateKey() + "|online-base") * 180);
-    }
-    var wobble = Math.floor(Math.sin(Date.now() / 12000) * 25 + Math.sin(Date.now() / 7000) * 15);
-    var n = onlineBase + wobble + Math.floor(Math.random() * 8 - 3);
-    return Math.max(1, Math.min(230, n));
+  function countContent() {
+    var songs = 0, videos = 0, articles = 0;
+    document.querySelectorAll(".mc").forEach(function (c) {
+      if (c.classList.contains("mv")) videos++;
+      else songs++;
+    });
+    document.querySelectorAll("article.post-card").forEach(function (a) {
+      if (!a.querySelector("audio, [data-ez-player], video, iframe[src*='aparat'], iframe[src*='youtube']")) {
+        articles++;
+      }
+    });
+    var recent = document.querySelectorAll("#recent-posts-list li").length;
+    return { songs: songs, videos: videos, articles: articles, recent: recent };
   }
 
-  function renderStats() {
+  function updateGlobalStats(hitToday) {
+    var todayKey = NS + "day-" + tehranDateKey(0);
+    var ydayKey = NS + "day-" + tehranDateKey(-1);
+    var monthKey = NS + "mon-" + tehranMonthKey();
+    var yearKey = NS + "yr-" + tehranYearKey();
+    var device = detectDevice();
+    var deviceKey = NS + "dev-" + device.type;
+
+    return Promise.all([
+      fetchCount(todayKey, !!hitToday),
+      fetchCount(ydayKey, false),
+      fetchCount(monthKey, !!hitToday),
+      fetchCount(yearKey, !!hitToday),
+      fetchCount(deviceKey, !!hitToday)
+    ]).then(function (vals) {
+      return {
+        today: vals[0],
+        yesterday: vals[1],
+        month: vals[2],
+        year: vals[3],
+        deviceHits: vals[4],
+        device: device
+      };
+    });
+  }
+
+  function renderStatsBox(data, content) {
     var root = document.getElementById("blog-stats-box");
     if (!root) return;
-    var onlineEl = root.querySelector("[data-stat-online]");
-    var todayEl = root.querySelector("[data-stat-today]");
-    var googleEl = root.querySelector("[data-stat-google]");
-    if (onlineEl) onlineEl.textContent = toFa(getOnline());
-    if (todayEl) todayEl.textContent = toFa(dailyRandom("blog-today", 6800, 360000));
-    if (googleEl) googleEl.textContent = toFa(dailyRandom("google-today", 1700, 247000));
+
+    function set(sel, val) {
+      var el = root.querySelector(sel);
+      if (el) el.textContent = typeof val === "number" ? toFa(val) : val;
+    }
+
+    set("[data-stat-today]", data.today);
+    set("[data-stat-yesterday]", data.yesterday);
+    set("[data-stat-month]", data.month);
+    set("[data-stat-year]", data.year);
+    set("[data-stat-device]", data.device.label);
+    set("[data-stat-songs]", content.songs);
+    set("[data-stat-videos]", content.videos);
+    set("[data-stat-articles]", content.articles || content.recent);
+
+    var devIcon = root.querySelector("[data-stat-device-icon]");
+    if (devIcon) devIcon.textContent = data.device.icon;
+
+    root.classList.add("is-ready");
   }
 
-  function startStats() {
-    renderStats();
-    setInterval(function () {
-      var onlineEl = document.querySelector("#blog-stats-box [data-stat-online]");
-      if (onlineEl) onlineEl.textContent = toFa(getOnline());
-    }, 8000);
-  }
-
-  function scan() {
-    document.querySelectorAll("[data-view-counter]").forEach(processCounter);
+  function scanViews() {
+    document.querySelectorAll("[data-view-counter]").forEach(processViewCounter);
   }
 
   function init() {
-    scan();
-    startStats();
+    var sessionHit = false;
+    try {
+      if (!sessionStorage.getItem("ntv6-visit")) {
+        sessionStorage.setItem("ntv6-visit", "1");
+        sessionHit = true;
+      }
+    } catch (e) {
+      sessionHit = true;
+    }
+
+    scanViews();
+    bindDownloadTracking();
+
+    var content = countContent();
+    updateGlobalStats(sessionHit).then(function (data) {
+      renderStatsBox(data, content);
+    });
+
+    var obs = new MutationObserver(function () { scanViews(); });
+    obs.observe(document.body, { childList: true, subtree: true });
   }
 
   if (document.readyState === "loading") {
@@ -200,7 +277,4 @@
   } else {
     init();
   }
-
-  var obs = new MutationObserver(function () { scan(); });
-  obs.observe(document.body, { childList: true, subtree: true });
 })();
