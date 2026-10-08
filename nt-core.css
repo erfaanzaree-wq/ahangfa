@@ -1,7 +1,9 @@
-/* New Taraneh v6 – enhanced cards, footer, player, perf */
+/* New Taraneh v6.1 – footer fix, app UI, cards, stats */
 :root{--nt-radius:16px;--nt-card-r:18px}
+
+/* ===== Music / Video Cards ===== */
 .mg{display:grid;grid-auto-flow:dense;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--s3);content-visibility:auto;contain-intrinsic-size:auto 280px}
-.mc{position:relative;display:flex;flex-direction:column;background:var(--C);border:var(--bd);border-radius:var(--nt-card-r);overflow:hidden;box-shadow:var(--ss);transition:border-color .22s var(--e),box-shadow .22s var(--e),transform .18s var(--e);will-change:transform}
+.mc{position:relative;display:flex;flex-direction:column;background:var(--C);border:var(--bd);border-radius:var(--nt-card-r);overflow:hidden;box-shadow:var(--ss);transition:border-color .22s var(--e),box-shadow .22s var(--e),transform .18s var(--e)}
 .mc:hover{border-color:color-mix(in srgb,var(--P) 50%,var(--B));box-shadow:var(--Shadow);transform:translateY(-2px)}
 .mc.on{border-color:var(--P);box-shadow:0 0 0 1.5px var(--P)}
 .mc.vip{border-color:rgba(245,197,66,.55)}
@@ -19,20 +21,61 @@
 .mc-d:hover{background:var(--P);color:#06121c}
 @media (max-width:420px){.mg{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.mc-b{padding:10px}.mc-i .mc-p{width:40px;height:40px}}
 @media (min-width:1200px){.mg{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}}
-.site-footer{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--A) 0%,var(--Body) 100%);border-top:1px solid var(--B);padding:var(--sp-7) var(--s4) calc(var(--s5)+env(safe-area-inset-bottom,0px))}
+
+/* ===== Category / Tag page title ===== */
+.cat-page-title{display:flex;align-items:center;gap:10px;font-size:var(--fs-lg);font-weight:900;margin-bottom:var(--s4);padding-bottom:var(--s3);border-bottom:1px solid var(--B);color:var(--T)}
+.cat-page-title svg{width:28px;height:28px;color:var(--P);flex-shrink:0}
+
+/* ===== Footer – fully responsive ===== */
+.site-footer{position:relative;overflow:hidden;background:linear-gradient(180deg,var(--A) 0%,var(--Body) 100%);border-top:1px solid var(--B);padding:var(--sp-7) var(--s4) calc(var(--s5) + env(safe-area-inset-bottom,0px))}
 .site-footer:before{content:"";position:absolute;top:0;inset-inline:0;height:2px;background:linear-gradient(90deg,transparent,var(--P) 25%,#f5c542 75%,transparent)}
-.site-footer-inner{position:relative;z-index:1;max-width:var(--container);margin-inline:auto;display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:var(--sp-6) var(--sp-7)}
-.ft-logo{display:flex;align-items:center;gap:12px;font-size:var(--fs-md);font-weight:900;color:var(--T)!important}
-.ft-logo svg{width:48px;height:48px;padding:5px;border-radius:14px;background:var(--C);border:var(--bd)}
-.ft-about{margin-top:var(--s3);max-width:28rem;font-size:var(--f1);line-height:2;color:var(--M)}
-.ft-col{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s2);font-size:var(--f2);font-weight:600}
+.site-footer-inner{position:relative;z-index:1;max-width:var(--container);margin-inline:auto;display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:var(--sp-6) var(--sp-7);align-items:start}
+.site-footer a{color:var(--M);transition:color var(--t)}
+.site-footer a:hover{color:var(--P)}
+.ft-brand{min-width:0}
+.ft-logo{display:flex;align-items:center;gap:12px;font-size:var(--fs-md);font-weight:900;color:var(--T)!important;text-decoration:none}
+.ft-logo svg{width:44px;height:44px;padding:5px;border-radius:14px;background:var(--C);border:var(--bd);flex-shrink:0}
+.ft-logo span{line-height:1.35;word-break:break-word}
+.ft-about{margin-top:var(--s3);max-width:28rem;font-size:var(--f1);line-height:1.9;color:var(--M)}
+.ft-col{display:flex;flex-direction:column;align-items:flex-start;gap:var(--s2);font-size:var(--f2);font-weight:600;min-width:0}
 .ft-h{margin-bottom:4px;font-size:var(--f2);font-weight:800;color:var(--T)}
-.ft-tg{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:var(--rp);background:#0088cc;color:#fff!important;font-size:var(--f1);font-weight:700}
-.ft-bar{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s3);padding-top:var(--s4);border-top:1px solid var(--B)}
-.footer-brand{font-size:var(--f1);font-weight:600;opacity:.8;direction:ltr}
-.footer-legal{font-size:var(--f1);line-height:1.9;opacity:.75;max-width:42rem}
-@media (max-width:760px){.site-footer-inner{grid-template-columns:1fr 1fr;gap:var(--s5)}.ft-brand{grid-column:1/-1}}
+.ft-tg{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--rp);background:#0088cc;color:#fff!important;font-size:var(--f1);font-weight:700;white-space:nowrap}
+.ft-bar{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s3);padding-top:var(--s4);border-top:1px solid var(--B);margin-top:var(--s2)}
+.footer-brand{font-size:var(--f1);font-weight:600;opacity:.8;direction:ltr;flex-shrink:0}
+.footer-legal{font-size:var(--f1);line-height:1.8;opacity:.75;max-width:100%;display:block}
+.footer-legal:hover{opacity:1}
+
+/* Footer mobile – stack cleanly */
+@media (max-width:760px){
+  .site-footer-inner{grid-template-columns:1fr 1fr;gap:var(--s5) var(--s4)}
+  .ft-brand{grid-column:1 / -1}
+  .ft-logo{font-size:var(--fs-base)}
+  .ft-logo svg{width:40px;height:40px}
+  .ft-about{max-width:100%}
+  .ft-bar{flex-direction:column;align-items:flex-start;gap:var(--s2)}
+}
+@media (max-width:420px){
+  .site-footer-inner{grid-template-columns:1fr;gap:var(--s5)}
+  .ft-col{width:100%}
+  .ft-tg{width:100%;justify-content:center}
+}
+
+/* ===== Blog Stats Box ===== */
+#blog-stats-box{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px;background:var(--C);border:var(--bd);border-radius:var(--r-lg);margin-bottom:var(--s2)}
+.stat-item{display:flex;flex-direction:column;align-items:center;gap:2px;text-align:center;padding:8px 4px;border-radius:var(--rs);background:var(--A)}
+.stat-item b{font-size:var(--fs-md);font-weight:900;color:var(--P);font-variant-numeric:tabular-nums;line-height:1.3}
+.stat-item span{font-size:.68rem;color:var(--M);font-weight:600}
+@media (max-width:420px){#blog-stats-box{grid-template-columns:repeat(3,1fr);gap:6px;padding:10px}.stat-item{padding:6px 2px}.stat-item b{font-size:var(--fs-base)}}
+
+/* ===== View counter in post meta ===== */
+.post-view-count{font-variant-numeric:tabular-nums;font-weight:700;color:var(--P)}
+[data-view-counter]{opacity:.7;transition:opacity .3s}
+[data-view-counter].is-ready{opacity:1}
+
+/* ===== Player polish ===== */
 .ez-mini{backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .ez-player{box-shadow:var(--ss)}
+
+/* ===== Perf ===== */
 .mc,.post-card{content-visibility:auto}
 @media (prefers-reduced-motion:reduce){.mc:hover{transform:none}.mc:hover .mc-i img{transform:none}}
