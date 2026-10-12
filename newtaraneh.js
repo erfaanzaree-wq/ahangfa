@@ -1,1 +1,10 @@
-{{FILE:/home/workdir/artifacts/newtaraneh.js}}
+/^newtaraneh\.blogfa\.com$/i.test(location.hostname)&&location.replace("https://new-taraneh.ir"+location.pathname+location.search+location.hash);
+;
+document.addEventListener("DOMContentLoaded",function(){try{cmt_caption[0]="دیدگاه شما",cmt_caption[1]="ارسال دیدگاه",cmt_caption[2]="یک دیدگاه",cmt_caption[3]="دیدگاه",cmt_blogid="<-BlogId->"}catch(c){}});
+;
+(function(){var q=location.pathname;/post/i.test(q)&&document.documentElement.cl.add("post");var e=function(t){return document.q(t)},i=e('meta[property="og:type"]');i&&document.documentElement.cl.contains("post")&&(i.content="article");var w="https://new-taraneh.ir",m=location.search,d=w+location.pathname+(/[?&](page|p|cat|tag)=/.test(m)?m:""),u=document.ge("canonical-link");u||(u=document.createElement("link"),u.rel="canonical",u.id="canonical-link",document.head.appendChild(u));u.href=d;var s=e('meta[property="og:url"]');s&&(s.content=d);function p(){var t=e("article[data-post-schema]")||e("article");if(t){var n=t.q("[data-webloog-article-content] img");if(n&&n.src){var h=new URL(n.src,location.href).href,l=e('meta[property="og:image"]');l&&(l.content=h,["width","height"].forEach(function(L){var y=e('meta[property="og:image:'+L+'"]');y&&y.remove()}));var f=e('meta[name="twitter:image"]');f&&(f.content=h)}var o=t.q("audio");if(o){var g=o.src||o.q("source")&&o.q("source").src||"";if(g){var c=document.ce("meta");c.sa("property","og:audio"),c.content=new URL(g,location.href).href,document.head.ac(c)}}var a=t.q("video");if(a){var v=a.ga("src")||a.q("source")&&a.q("source").src||"";if(v){var r=document.ce("meta");r.sa("property","og:video"),r.content=new URL(v,location.href).href,document.head.ac(r)}}}}document.readyState==="loading"?document.on("DOMContentLoaded",p):p()})();
+;
+try{var p=location.pathname.replace(/\/+$/,"")||"/",s=location.search;(p==="/"||p==="")&&!/[?&](cat|tag)=/.test(s)&&(/^\?(p|page)=\d+$/.test(s)||!s)&&(document.documentElement.className+=" cp hm",setTimeout(function(){document.documentElement.cl.remove("cp")},1500))}catch(e){}
+;
+/* REST OF SCRIPTS LOADED BELOW - PLACEHOLDER */
+console.log('newtaraneh.js partial - full upload pending');
